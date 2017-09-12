@@ -1,0 +1,3 @@
+TGAPIKey: "KEY"
+apiURL: "http://localhost/"
+REDIS_HOST: "localhost:6379"
