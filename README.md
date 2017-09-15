@@ -1,1 +1,1 @@
-# ratebeerbot
+# GoodsRateBot
