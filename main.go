@@ -123,7 +123,7 @@ func main() {
 					log.Printf("u.CallbackQuery: Error currentUserRaiting for %v: %s", userID, err)
 				}
 
-				if string(currentUserRaiting) != cbData[0] && currentUserRaiting != nil {
+				if string(currentUserRaiting) != cbData[0] || currentUserRaiting != nil {
 					err = incBarcodeRaiting("rating:"+cbData[1], string(currentUserRaiting), []byte("-1"))
 					if err != nil {
 						log.Printf("u.CallbackQuery: Error incBarcodeRaiting (-1): %s", err)
@@ -176,26 +176,12 @@ func main() {
 func getResp() {
 	// goroutine for magic
 	for msg := range chnReq {
-		var bc, resp string
+		var resp string
 		var r raiting
 		var count int64
 
 		// get image from telegram and search barcode
-		response, err := http.Get(msg.text)
-		if err != nil {
-			log.Panic(err)
-		}
-		defer response.Body.Close()
-
-		src, _ := jpeg.Decode(response.Body)
-		img := barcode.NewImage(src)
-		scanner := barcode.NewScanner().
-			SetEnabledAll(true)
-
-		symbols, _ := scanner.ScanImage(img)
-		for _, s := range symbols {
-			bc = s.Data
-		}
+		bc := decodeImgFromTG(msg.text)
 
 		if bc != "" {
 			// get barcode name from redis
@@ -274,10 +260,11 @@ func getMaxFileID(photos []tgbotapi.PhotoSize) string {
 
 // get name from API
 func getNameFromBarcode(bcd string) (bool, string) {
+	apiKey := viper.GetString("apiKey")
 	apiURL := viper.GetString("apiURL")
 	bc := bcJSON{}
 
-	err := getJSON(apiURL+bcd, &bc)
+	err := getJSON(apiURL+bcd+"/"+apiKey, &bc)
 	if err != nil {
 		log.Printf("getNameFromBarcode: Error getJSON for bcd %v: %s", bcd, err)
 		return false, ""
@@ -298,4 +285,24 @@ func getJSON(url string, target interface{}) error {
 	defer r.Body.Close()
 
 	return json.NewDecoder(r.Body).Decode(target)
+}
+
+func decodeImgFromTG(url string) string {
+	var bc string
+	// get image from telegram and search barcode
+	response, err := http.Get(url)
+	if err != nil {
+		log.Panic(err)
+	}
+	defer response.Body.Close()
+
+	src, _ := jpeg.Decode(response.Body)
+	img := barcode.NewImage(src)
+	scanner := barcode.NewScanner().SetEnabledAll(true)
+
+	symbols, _ := scanner.ScanImage(img)
+	for _, s := range symbols {
+		bc = s.Data
+	}
+	return bc
 }
